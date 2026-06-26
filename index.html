@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIMAD — Defesa da Engenharia do Software</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Space Grotesk', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            purple: '#4f46e5',
+                            purpleDark: '#3730a3',
+                            purpleLight: '#eef2ff',
+                            orange: '#ea580c',
+                            orangeLight: '#fff7ed',
+                            ink: '#0b1020',
+                            paper: '#f8fafc'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        html, body { scroll-behavior: smooth; }
+        body {
+            background-color: #f8fafc;
+            color: #1e293b;
+            font-size: 18px;
+            line-height: 1.55;
+        }
+        .grid-overlay {
+            background-image:
+                radial-gradient(circle at 20% 10%, rgba(79,70,229,0.06), transparent 40%),
+                radial-gradient(circle at 80% 90%, rgba(234,88,12,0.05), transparent 40%),
+                linear-gradient(to right, rgba(100,116,139,0.06) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(100,116,139,0.06) 1px, transparent 1px);
+            background-size: auto, auto, 56px 56px, 56px 56px;
+        }
+        .card { box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 14px 40px -18px rgba(15,23,42,0.18); }
+        .card-hover:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 1px 2px rgba(15,23,42,0.06), 0 24px 60px -22px rgba(79,70,229,0.28);
+        }
+        .chip {
+            display:inline-flex; align-items:center; gap:.5rem;
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+            font-size: .85rem; padding: .55rem 1rem; border-radius: 9999px;
+            border: 1px solid;
+        }
+        .h-section { font-family:'Space Grotesk',sans-serif; font-weight:700; letter-spacing:-0.02em; }
+        section { scroll-snap-align: start; }
+        html { scroll-snap-type: y proximity; }
+        .gradient-text {
+            background: linear-gradient(90deg,#4f46e5,#ea580c);
+            -webkit-background-clip: text; background-clip: text; color: transparent;
+        }
+        .lead { font-size: 1.5rem; line-height: 1.55; color:#334155; font-weight: 400; }
+        @media (min-width: 1024px){ .lead { font-size: 1.7rem; } }
+
+        /* Timeline vertical */
+        .timeline-item { position: relative; }
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -33px; top: 10px;
+            width: 14px; height: 14px;
+            border-radius: 50%;
+            background: white;
+            border: 3px solid #4f46e5;
+        }
+
+        /* State machine visual */
+        .state-node {
+            display: inline-flex; align-items: center; justify-content: center;
+            font-family: 'Space Grotesk', sans-serif; font-weight: 700;
+            border-radius: 9999px; padding: .5rem 1.25rem;
+            font-size: .95rem; border: 2px solid;
+        }
+        .arrow { color: #94a3b8; font-size: 1.25rem; }
+
+        /* Sequence step */
+        .seq-step {
+            display: flex; align-items: flex-start; gap: 1rem;
+            padding: .9rem 0; border-bottom: 1px solid #f1f5f9;
+        }
+        .seq-step:last-child { border-bottom: none; }
+        .seq-num {
+            width: 2rem; height: 2rem; border-radius: 50%;
+            background: #eef2ff; color: #4f46e5;
+            display: flex; align-items: center; justify-content: center;
+            font-family: 'Space Grotesk', sans-serif; font-weight: 700;
+            font-size: .9rem; flex-shrink: 0; margin-top: 2px;
+        }
+
+        /* Placeholder de imagem de diagrama que se adapta ao tamanho real da imagem */
+        .diagram-placeholder {
+            width: 100%;
+            display: block; 
+            border: 3px dashed #cbd5e1;
+            border-radius: 1.5rem;
+            background: repeating-linear-gradient(135deg, #f8fafc 0 18px, #f1f5f9 18px 36px);
+            color: #94a3b8;
+            overflow: hidden; /* Garante que a imagem respeite os cantos arredondados do contêiner */
+            position: relative;
+        }
+
+    </style>
+</head>
+<body class="antialiased grid-overlay selection:bg-brand-purple/15 selection:text-brand-purpleDark">
+
+    <!-- Barra de progresso -->
+    <div id="progress-bar" class="fixed top-0 left-0 h-1.5 bg-gradient-to-r from-brand-purple via-fuchsia-500 to-brand-orange z-50 transition-[width] duration-300" style="width: 0%;"></div>
+
+    <!-- HUD apresentador + timer -->
+    <div class="fixed top-5 right-5 bg-white/85 backdrop-blur-xl border border-slate-200 card rounded-full px-5 py-3 z-50 flex items-center gap-4 text-sm">
+        <div class="flex items-center gap-2">
+            <span class="relative flex h-2.5 w-2.5">
+                <span class="absolute inline-flex h-full w-full rounded-full bg-brand-purple opacity-60 animate-ping"></span>
+                <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-brand-purple"></span>
+            </span>
+            <span id="active-presenter" class="text-brand-purpleDark font-extrabold tracking-[0.18em] uppercase transition-opacity duration-300">MARIA</span>
+        </div>
+        <span class="text-slate-300">|</span>
+        <span id="timer" class="text-slate-700 font-mono font-bold bg-slate-100 px-3 py-1 rounded-full border border-slate-200">10:00</span>
+        <span class="text-slate-300 hidden md:inline">|</span>
+        <span id="slide-counter" class="hidden md:inline text-slate-500 font-mono font-semibold">1 / 10</span>
+    </div>
+
+    <!-- ===== SLIDE 1 — CAPA ===== -->
+    <section id="sec-s1" class="min-h-screen flex flex-col justify-center items-center px-6 relative bg-white">
+        <div class="text-center max-w-5xl opacity-0 translate-y-12 init-anim">
+            <span class="chip text-brand-orange bg-brand-orangeLight border-orange-200 mb-8">Defesa da Engenharia do Software</span>
+            <h1 class="h-section text-7xl md:text-[9rem] font-extrabold text-brand-ink leading-none mt-6">
+                SI<span class="gradient-text">MAD</span>
+            </h1>
+            <p class="mt-6 text-2xl md:text-3xl text-slate-600 max-w-3xl mx-auto leading-snug">
+                Análise e Projeto de Sistemas
+            </p>
+            <p class="mt-3 text-lg text-slate-400 leading-snug">
+                Como mapeamos as necessidades da Defesa Civil de Campo Limpo Paulista/SP em uma arquitetura de microsserviços utilizando padrões UML.
+            </p>
+
+            <div class="mt-12 flex flex-wrap justify-center gap-3">
+                <span class="bg-slate-100 text-slate-700 text-sm px-4 py-2 rounded-full font-semibold border border-slate-200">Hiandra Bispo</span>
+                <span class="bg-slate-100 text-slate-700 text-sm px-4 py-2 rounded-full font-semibold border border-slate-200">Jeyson Alves</span>
+                <span class="bg-slate-100 text-slate-700 text-sm px-4 py-2 rounded-full font-semibold border border-slate-200">Letícia Carvalheiro</span>
+                <span class="bg-slate-100 text-slate-700 text-sm px-4 py-2 rounded-full font-semibold border border-slate-200">Maria Clara Lima</span>
+                <span class="bg-slate-100 text-slate-700 text-sm px-4 py-2 rounded-full font-semibold border border-slate-200">Taíssa Ribeiro</span>
+            </div>
+            <p class="mt-8 text-sm text-slate-400 tracking-[0.2em] uppercase font-semibold">Prof. Luiz Albano · Análise e Projeto de Sistemas · 26/06/2026</p>
+        </div>
+        <div class="absolute bottom-10 animate-bounce text-slate-400 text-sm flex flex-col items-center font-semibold tracking-widest uppercase">
+            <span class="mb-2">Deslize para baixo</span>
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
+        </div>
+    </section>
+
+    <!-- ===== SLIDE 2 — DO PROBLEMA AO ESCOPO ===== -->
+    <section id="sec-s2" class="min-h-screen flex flex-col justify-center px-6 md:px-16 lg:px-24 bg-slate-50 border-y border-slate-200">
+        <div class="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            <div>
+                <span class="chip text-brand-orange bg-brand-orangeLight border-orange-200">Diagnóstico</span>
+                <h2 class="h-section text-5xl md:text-6xl text-brand-ink mt-6 mb-8 leading-[1.05]">
+                    Do Problema <span class="text-brand-orange">ao Escopo</span>
+                </h2>
+                <p class="lead mb-8">
+                    A Defesa Civil de Campo Limpo Paulista operava com <strong class="text-brand-ink">fragmentação operacional</strong>: dados climáticos, vistorias técnicas e alertas residiam em canais independentes e desconectados.
+                </p>
+                <div class="p-6 rounded-2xl bg-brand-purpleLight border border-brand-purple/20 flex items-start gap-4">
+                    <span class="text-brand-purpleDark shrink-0 mt-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-8 h-8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+                    </span>
+                    <p class="text-lg md:text-xl text-brand-purpleDark font-semibold leading-snug">
+                        Nossa engenharia unificou esses dados sob regras de <strong>controle de acesso por perfil (RBAC)</strong>, modelando um fluxo voltado a prevenir desastres geológicos e estruturais.
+                    </p>
+                </div>
+            </div>
+
+            <div class="bg-white p-8 rounded-3xl border border-slate-200 card space-y-5">
+                <h3 class="h-section text-2xl text-brand-ink border-b pb-4 border-slate-100 flex items-center gap-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6 text-brand-orange"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"/></svg>
+                    Atores e Escopo Mapeados
+                </h3>
+                <div class="space-y-4">
+                    <div class="flex items-start gap-4 p-4 rounded-2xl bg-orange-50 border border-orange-100">
+                        <span class="w-2.5 h-2.5 rounded-full bg-brand-orange mt-2 flex-shrink-0"></span>
+                        <div><strong class="text-brand-ink">Morador:</strong> <span class="text-slate-600">Registra ocorrências locais georreferenciadas e acompanha andamentos.</span></div>
+                    </div>
+                    <div class="flex items-start gap-4 p-4 rounded-2xl bg-indigo-50 border border-indigo-100">
+                        <span class="w-2.5 h-2.5 rounded-full bg-brand-purple mt-2 flex-shrink-0"></span>
+                        <div><strong class="text-brand-ink">Agente:</strong> <span class="text-slate-600">Executa vistorias estruturadas em checklists e dispara alertas à população.</span></div>
+                    </div>
+                    <div class="flex items-start gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                        <span class="w-2.5 h-2.5 rounded-full bg-slate-500 mt-2 flex-shrink-0"></span>
+                        <div><strong class="text-brand-ink">Administrador:</strong> <span class="text-slate-600">Modera acessos, audita logs e parametriza zonas críticas municipais.</span></div>
+                    </div>
+                    <div class="flex items-start gap-4 p-4 rounded-2xl bg-emerald-50 border border-emerald-100">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 mt-2 flex-shrink-0"></span>
+                        <div><strong class="text-brand-ink">Sis. Meteorológico:</strong> <span class="text-slate-600">Fornece payloads via API para gatilhos automáticos de desastre.</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== SLIDE 3 — FLUXO GERAL ===== -->
+    <section id="sec-s3" class="min-h-screen flex flex-col justify-center px-6 md:px-16 lg:px-24 bg-white">
+        <div class="max-w-7xl mx-auto w-full">
+            <div class="text-center max-w-3xl mx-auto mb-16">
+                <span class="chip text-brand-purpleDark bg-brand-purpleLight border-brand-purple/20">Funcionalidades</span>
+                <h2 class="h-section text-5xl md:text-6xl text-brand-ink mt-6">Fluxo de Atividades Geral</h2>
+                <p class="lead mt-4">A esteira de atividades do SIMAD conecta o cidadão na ponta aos tomadores de decisão operacionais de forma automática e imediata.</p>
+            </div>
+
+            <div class="relative">
+                <!-- linha de timeline -->
+                <div class="hidden md:block absolute top-[3.5rem] left-0 right-0 h-0.5 bg-slate-200 z-0"></div>
+
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-6 relative z-10">
+                    <!-- step 1 -->
+                    <div class="flex flex-col items-center text-center">
+                        <div class="w-14 h-14 rounded-full bg-brand-orange text-white flex items-center justify-center h-section text-xl font-extrabold shadow-lg shadow-brand-orange/30 mb-5 relative z-10 border-4 border-brand-orange">1</div>
+                        <div class="bg-white p-6 rounded-2xl border border-slate-200 card w-full">
+                            <h4 class="h-section text-lg text-brand-orange mb-2">Registro</h4>
+                            <p class="text-sm text-slate-600 leading-relaxed">Morador ou agente insere fotos e localiza incidente via GPS ou CEP.</p>
+                        </div>
+                    </div>
+                    <!-- step 2 -->
+                    <div class="flex flex-col items-center text-center md:mt-[-4rem]">
+                        <div class="w-14 h-14 rounded-full bg-white border-4 border-brand-purple text-brand-purple flex items-center justify-center h-section text-xl font-extrabold shadow-lg mb-5 relative z-10">2</div>
+                        <div class="bg-brand-purpleLight p-6 rounded-2xl border border-brand-purple/20 card w-full">
+                            <h4 class="h-section text-lg text-brand-purpleDark mb-2">Validação</h4>
+                            <p class="text-sm text-brand-purpleDark/80 leading-relaxed">O sistema processa regras de preenchimento e gera protocolo imutável.</p>
+                        </div>
+                    </div>
+                    <!-- step 3 -->
+                    <div class="flex flex-col items-center text-center">
+                        <div class="w-14 h-14 rounded-full bg-brand-orange text-white flex items-center justify-center h-section text-xl font-extrabold shadow-lg shadow-brand-orange/30 mb-5 relative z-10 border-4 border-brand-orange">3</div>
+                        <div class="bg-white p-6 rounded-2xl border border-slate-200 card w-full">
+                            <h4 class="h-section text-lg text-brand-orange mb-2">Triagem</h4>
+                            <p class="text-sm text-slate-600 leading-relaxed">Agente recebe a ocorrência em tempo real no mapa operacional.</p>
+                        </div>
+                    </div>
+                    <!-- step 4 -->
+                    <div class="flex flex-col items-center text-center md:mt-[-4rem]">
+                        <div class="w-14 h-14 rounded-full bg-white border-4 border-brand-purple text-brand-purple flex items-center justify-center h-section text-xl font-extrabold shadow-lg mb-5 relative z-10">4</div>
+                        <div class="bg-brand-purpleLight p-6 rounded-2xl border border-brand-purple/20 card w-full">
+                            <h4 class="h-section text-lg text-brand-purpleDark mb-2">Intervenção</h4>
+                            <p class="text-sm text-brand-purpleDark/80 leading-relaxed">Realização de vistoria técnica assistida por checklist padrão.</p>
+                        </div>
+                    </div>
+                    <!-- step 5 -->
+                    <div class="flex flex-col items-center text-center">
+                        <div class="w-14 h-14 rounded-full bg-brand-orange text-white flex items-center justify-center h-section text-xl font-extrabold shadow-lg shadow-brand-orange/30 mb-5 relative z-10 border-4 border-brand-orange">5</div>
+                        <div class="bg-white p-6 rounded-2xl border border-slate-200 card w-full">
+                            <h4 class="h-section text-lg text-brand-orange mb-2">Alerta & Fim</h4>
+                            <p class="text-sm text-slate-600 leading-relaxed">Emissão de alerta multicanal e arquivamento lógico da ocorrência.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- módulos -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-5 mt-14 pt-10 border-t border-slate-200 text-center">
+                <div><div class="h-section text-2xl text-brand-purple mb-1">Autenticação</div><div class="text-sm text-slate-500">Cadastro e controle de acesso por perfil</div></div>
+                <div><div class="h-section text-2xl text-brand-purple mb-1">Ocorrências</div><div class="text-sm text-slate-500">Registro, protocolo e histórico</div></div>
+                <div><div class="h-section text-2xl text-brand-orange mb-1">Alertas</div><div class="text-sm text-slate-500">Manual e automático multicanal</div></div>
+                <div><div class="h-section text-2xl text-brand-orange mb-1">Mapas & KPIs</div><div class="text-sm text-slate-500">Visualização geográfica e relatórios</div></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== SLIDE 4 — ARQUITETURA / DIAGRAMA DE PACOTES ===== -->
+    <section id="sec-s4" class="min-h-screen flex flex-col justify-center px-6 md:px-16 lg:px-24 bg-slate-50 border-y border-slate-200">
+        <div class="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            <div>
+                <span class="chip text-brand-purpleDark bg-brand-purpleLight border-brand-purple/20">Arquitetura</span>
+                <h2 class="h-section text-5xl md:text-6xl text-brand-ink mt-6 mb-8 leading-[1.05]">
+                    Diagrama de <span class="text-brand-purple">Pacotes</span>
+                </h2>
+                <p class="lead mb-8">A modelagem lógica foi estruturada em <strong class="text-brand-ink">microsserviços simplificados</strong>. Esta decisão garante o desacoplamento de domínio, otimizando testes e facilitando a transição futura do MVP.</p>
+                <div class="p-6 rounded-2xl bg-slate-100 border border-slate-200 text-base text-slate-600 flex items-start gap-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 text-brand-purple shrink-0 mt-0.5"><path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z"/></svg>
+                    Cada microsserviço isola suas tabelas e se comunica estritamente através de contratos de APIs REST de baixo acoplamento.
+                </div>
+            </div>
+
+            <!-- Diagrama de pacotes visual -->
+            <div class="space-y-4">
+                <div class="flex gap-4">
+                    <!-- ms-usuario -->
+                    <div class="flex-1 bg-white rounded-2xl border-2 border-slate-300 card p-5 relative">
+                        <div class="absolute -top-3 left-4 bg-brand-ink text-white text-xs font-mono font-bold px-3 py-0.5 rounded-full">ms-usuario</div>
+                        <div class="space-y-2 mt-2">
+                            <div class="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 text-sm font-semibold text-slate-700"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4 text-brand-purple"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"/></svg> Usuario</div>
+                            <div class="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 text-sm font-semibold text-slate-700"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4 text-brand-orange"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/></svg> Morador</div>
+                            <div class="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 text-sm font-semibold text-slate-700"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4 text-brand-purple"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"/></svg> AgenteDefesaCivil</div>
+                        </div>
+                    </div>
+                    <!-- ms-ocorrencia -->
+                    <div class="flex-1 bg-white rounded-2xl border-2 border-slate-300 card p-5 relative">
+                        <div class="absolute -top-3 left-4 bg-brand-purple text-white text-xs font-mono font-bold px-3 py-0.5 rounded-full">ms-ocorrencia</div>
+                        <div class="space-y-2 mt-2">
+                            <div class="flex items-center gap-2 bg-brand-purpleLight px-3 py-2 rounded-lg border border-brand-purple/20 text-sm font-semibold text-brand-purpleDark">📄 Ocorrencia</div>
+                            <div class="flex items-center gap-2 bg-brand-purpleLight px-3 py-2 rounded-lg border border-brand-purple/20 text-sm font-semibold text-brand-purpleDark">✅ Vistoria / Checklist</div>
+                            <div class="flex items-center gap-2 bg-brand-purpleLight px-3 py-2 rounded-lg border border-brand-purple/20 text-sm font-semibold text-brand-purpleDark">📍 Bairro</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- seta central -->
+                <div class="flex justify-center gap-8 text-slate-400 text-sm font-mono font-bold">
+                    <span title="acesso bidirecional" class="flex items-center gap-1.5"><span class="text-2xl text-slate-300">⇄</span> &lt;&lt;access&gt;&gt;</span>
+                    <span title="gera alerta" class="flex items-center gap-1.5"><span class="text-2xl text-slate-300">→</span> &lt;&lt;use&gt;&gt;</span>
+                </div>
+
+                <div class="flex gap-4">
+                    <!-- ms-alerta -->
+                    <div class="flex-1 bg-white rounded-2xl border-2 border-brand-orange/40 card p-5 relative">
+                        <div class="absolute -top-3 left-4 bg-brand-orange text-white text-xs font-mono font-bold px-3 py-0.5 rounded-full">ms-alerta</div>
+                        <div class="space-y-2 mt-2">
+                            <div class="flex items-center gap-2 bg-orange-50 px-3 py-2 rounded-lg border border-orange-100 text-sm font-semibold text-brand-orange">⚠️ Alerta</div>
+                            <div class="flex items-center gap-2 bg-orange-50 px-3 py-2 rounded-lg border border-orange-100 text-sm font-semibold text-brand-orange">⚙️ AlertaController</div>
+                        </div>
+                    </div>
+                    <!-- ms-notificacao -->
+                    <div class="flex-1 bg-white rounded-2xl border-2 border-emerald-200 card p-5 relative">
+                        <div class="absolute -top-3 left-4 bg-emerald-600 text-white text-xs font-mono font-bold px-3 py-0.5 rounded-full">ms-notificacao</div>
+                        <div class="space-y-2 mt-2">
+                            <div class="flex items-center gap-2 bg-emerald-50 px-3 py-2 rounded-lg border border-emerald-100 text-sm font-semibold text-emerald-700">📨 ServicoNotificacao</div>
+                            <div class="text-xs text-emerald-600 mt-2 px-1">Push · SMS · E-mail</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- legenda de dependências UML -->
+                <div class="flex flex-wrap items-center gap-x-6 gap-y-2 justify-center text-xs font-mono text-slate-400 pt-2">
+                    <span class="flex items-center gap-1.5"><strong class="text-slate-500">&lt;&lt;access&gt;&gt;</strong> dependência de leitura/escrita</span>
+                    <span class="flex items-center gap-1.5"><strong class="text-slate-500">&lt;&lt;use&gt;&gt;</strong> dependência de invocação de serviço</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== SLIDE 4B — IMAGEM: DIAGRAMA DE PACOTES ===== -->
+    <section id="sec-s4b" class="w-full block py-24 px-6 md:px-16 lg:px-24 bg-white">
+        <div class="max-w-6xl mx-auto w-full">
+            <div class="text-center mb-12"> <span class="chip text-brand-purpleDark bg-brand-purpleLight border-brand-purple/20">Arquitetura</span>
+                <h2 class="h-section text-4xl md:text-5xl text-brand-ink mt-6">Diagrama de Pacotes — Visão Completa</h2>
+            </div>
+            <div class="diagram-placeholder">
+                <img src="img\DIAGRAMAS-SIMAD-V2_page-0015.jpg" alt="Diagrama de Pacotes" class="w-full h-auto block">
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== SLIDE 5 — DIAGRAMA DE CLASSES ===== -->
+    <section id="sec-s5" class="min-h-screen flex flex-col justify-center px-6 md:px-16 lg:px-24 bg-white">
+        <div class="max-w-7xl mx-auto w-full">
+            <div class="mb-12">
+                <span class="chip text-brand-purpleDark bg-brand-purpleLight border-brand-purple/20">Modelagem UML</span>
+                <h2 class="h-section text-5xl md:text-6xl text-brand-ink mt-6">Diagrama de Classes</h2>
+                <p class="lead mt-3 max-w-3xl">As entidades do sistema, seus atributos e relacionamentos — base direta para o banco de dados e a lógica de negócio.</p>
+                <p class="text-sm text-slate-400 mt-3 max-w-3xl">Resumo das 4 classes centrais. O diagrama completo (~12 classes) está no próximo slide.</p>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-brand-ink text-white">
+                            <th class="h-section text-sm tracking-widest uppercase px-6 py-4 rounded-tl-2xl">Classe UML</th>
+                            <th class="h-section text-sm tracking-widest uppercase px-6 py-4">Atributos Principais</th>
+                            <th class="h-section text-sm tracking-widest uppercase px-6 py-4">Mapeamento de Relacionamento</th>
+                            <th class="h-section text-sm tracking-widest uppercase px-6 py-4 rounded-tr-2xl">Responsabilidade</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <tr class="bg-white hover:bg-brand-purpleLight/30 transition-colors">
+                            <td class="px-6 py-5 font-bold text-brand-ink font-mono">Usuario</td>
+                            <td class="px-6 py-5 text-slate-600 text-base">idUsuario, nome, email, senhaHash, ativo</td>
+                            <td class="px-6 py-5 text-slate-600 text-base">Superclasse herdada por Morador e Agente</td>
+                            <td class="px-6 py-5 text-slate-600 text-base">Controle de credenciais e segurança de acesso</td>
+                        </tr>
+                        <tr class="bg-slate-50 hover:bg-brand-purpleLight/30 transition-colors">
+                            <td class="px-6 py-5 font-bold text-brand-orange font-mono">Ocorrencia</td>
+                            <td class="px-6 py-5 text-slate-600 text-base">idOcorrencia, titulo, descricao, latitude, status</td>
+                            <td class="px-6 py-5 text-slate-600 text-base">Composição: 0..* Fotos e Históricos de Status</td>
+                            <td class="px-6 py-5 text-slate-600 text-base">Entidade-chave que dita a ação operacional</td>
+                        </tr>
+                        <tr class="bg-white hover:bg-brand-purpleLight/30 transition-colors">
+                            <td class="px-6 py-5 font-bold text-brand-ink font-mono">Vistoria</td>
+                            <td class="px-6 py-5 text-slate-600 text-base">idVistoria, dataVistoria, parecer, statusVistoria</td>
+                            <td class="px-6 py-5 text-slate-600 text-base">Associação: 1 Ocorrência possui 0..* Vistorias</td>
+                            <td class="px-6 py-5 text-slate-600 text-base">Armazena laudos e acopla checklists em campo</td>
+                        </tr>
+                        <tr class="bg-slate-50 hover:bg-brand-purpleLight/30 transition-colors">
+                            <td class="px-6 py-5 font-bold text-brand-ink font-mono">Alerta</td>
+                            <td class="px-6 py-5 text-slate-600 text-base">idAlerta, titulo, mensagem, dataInicio, dataFim</td>
+                            <td class="px-6 py-5 text-slate-600 text-base">Associação: 1 Bairro afetado concentra alertas</td>
+                            <td class="px-6 py-5 text-slate-600 text-base">Gerencia o escopo geográfico dos avisos críticos</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-8 p-5 rounded-2xl bg-amber-50 border border-amber-200 flex items-start gap-3">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6 text-amber-600 shrink-0 mt-0.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"/></svg>
+                <p class="text-base text-amber-800"><strong>Aderência à LGPD:</strong> O relacionamento entre classes protege dados sensíveis do Morador, ocultando-os em visualizações de mapas públicos.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== SLIDE 5B — IMAGEM: DIAGRAMA DE CLASSES ===== -->
+    <section id="sec-s5b" class="w-full block py-24 px-6 md:px-16 lg:px-24 bg-slate-50 border-y border-slate-200">
+        <div class="max-w-6xl mx-auto w-full">
+            <div class="text-center mb-12">
+                <span class="chip text-brand-purpleDark bg-brand-purpleLight border-brand-purple/20">Modelagem UML</span>
+                <h2 class="h-section text-4xl md:text-5xl text-brand-ink mt-6">Diagrama de Classes — Visão Completa</h2>
+            </div>
+            <div class="diagram-placeholder">
+                <img src="img\DIAGRAMAS-SIMAD-V2_page-0007.jpg" alt="Diagrama de Classes" class="w-full h-auto block">
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== SLIDE 6 — DIAGRAMA DE OBJETOS ===== -->
+    <section id="sec-s6" class="min-h-screen flex flex-col justify-center px-6 md:px-16 lg:px-24 bg-slate-50 border-y border-slate-200">
+        <div class="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            <div>
+                <span class="chip text-brand-orange bg-brand-orangeLight border-orange-200">Modelagem UML</span>
+                <h2 class="h-section text-5xl md:text-6xl text-brand-ink mt-6 mb-6 leading-[1.05]">
+                    Diagrama de <span class="text-brand-orange">Objetos</span>
+                </h2>
+                <p class="lead mb-8">
+                    Nossa equipe validou a estrutura estática simulando um <strong class="text-brand-ink">evento crítico</strong> no banco de dados do sistema — um deslizamento no Centro Histórico.
+                </p>
+                <div class="p-6 rounded-2xl bg-white border border-slate-200 card text-base text-slate-600 space-y-3">
+                    <p class="text-sm font-bold text-slate-400 tracking-widest uppercase mb-4">Por que Diagrama de Objetos?</p>
+                    <p>O Diagrama de Classes mostra a <em>estrutura geral</em>. O Diagrama de Objetos mostra as <strong class="text-brand-ink">classes funcionando em um caso concreto</strong>, validando se os relacionamentos fazem sentido na operação real da Defesa Civil.</p>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <div class="bg-white p-6 rounded-2xl border-l-4 border-brand-purple card flex items-start gap-4">
+                    <div class="w-10 h-10 rounded-full bg-brand-purpleLight text-brand-purple flex items-center justify-center font-bold shrink-0">1</div>
+                    <div>
+                        <p class="font-bold text-brand-ink mb-1"><span class="font-mono text-brand-purple">joao:Morador</span> abre protocolo urgente às 08:00h da manhã.</p>
+                        <p class="text-sm text-slate-500">Ocorrência georreferenciada no bairro Centro Histórico — Zona de Encosta.</p>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-2xl border-l-4 border-brand-orange card flex items-start gap-4">
+                    <div class="w-10 h-10 rounded-full bg-orange-50 text-brand-orange flex items-center justify-center font-bold shrink-0">2</div>
+                    <div>
+                        <p class="font-bold text-brand-ink mb-1">Instancia-se <span class="font-mono text-brand-orange">deslizamento:Ocorrencia</span> no bairro Centro Histórico.</p>
+                        <p class="text-sm text-slate-500">Status inicial: <em>Recebida</em>. Fotos e coordenadas GPS anexadas.</p>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-2xl border-l-4 border-slate-400 card flex items-start gap-4">
+                    <div class="w-10 h-10 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold shrink-0">3</div>
+                    <div>
+                        <p class="font-bold text-brand-ink mb-1"><span class="font-mono">agenteCarlos</span> responde ao formulário de Checklist Geológico às 09:15h.</p>
+                        <p class="text-sm text-slate-500">Laudo técnico: rachaduras de 5cm e saturação do solo confirmadas.</p>
+                    </div>
+                </div>
+                <div class="bg-red-50 p-6 rounded-2xl border-l-4 border-red-500 card flex items-start gap-4">
+                    <div class="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center font-bold shrink-0">4</div>
+                    <div>
+                        <p class="font-bold text-brand-ink mb-1"><span class="font-mono text-red-600">alertaEvacuacao:Alerta</span> é gerado e despachado às 09:30h da manhã.</p>
+                        <p class="text-sm text-slate-500">Push · SMS · E-mail disparados para moradores do bairro afetado.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== SLIDE 6B — IMAGEM: DIAGRAMA DE OBJETOS ===== -->
+    <section id="sec-s6b" class="w-full block py-24 px-6 md:px-16 lg:px-24 bg-white">
+        <div class="max-w-6xl mx-auto w-full">
+            <div class="text-center mb-12">
+                <span class="chip text-brand-orange bg-brand-orangeLight border-orange-200">Modelagem UML</span>
+                <h2 class="h-section text-4xl md:text-5xl text-brand-ink mt-6">Diagrama de Objetos — Visão Completa</h2>
+            </div>
+            <div class="diagram-placeholder">
+                <img src="img\DIAGRAMAS-SIMAD-V2_page-0008.jpg" alt="Diagrama de Objetos" class="w-full h-auto block">
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== SLIDE 7 — SEQUÊNCIA: REGISTRAR OCORRÊNCIA ===== -->
+    <section id="sec-s7" class="min-h-screen flex flex-col justify-center px-6 md:px-16 lg:px-24 bg-white">
+        <div class="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
+            <div>
+                <span class="chip text-brand-purpleDark bg-brand-purpleLight border-brand-purple/20">Modelagem UML</span>
+                <h2 class="h-section text-4xl md:text-5xl text-brand-ink mt-6 mb-6 leading-[1.05]">
+                    Sequência: <span class="text-brand-purple">Registrar Ocorrência</span>
+                </h2>
+                <p class="text-lg text-slate-600 mb-8 leading-relaxed">O fluxo mais crítico do SIMAD — da interface do cidadão até a persistência no banco com protocolo imutável <code class="text-brand-purple bg-brand-purpleLight px-2 py-0.5 rounded text-sm">SIMAD-2026-XXXX</code>.</p>
+
+                <div class="bg-brand-ink text-white p-7 rounded-2xl space-y-3">
+                    <h4 class="h-section text-lg text-slate-300 mb-4">Classificadores</h4>
+                    <div class="flex items-center gap-3 text-base"><span class="w-2 h-2 rounded-full bg-brand-orange shrink-0"></span><span><strong>Morador/Agente</strong> — inicia o fluxo</span></div>
+                    <div class="flex items-center gap-3 text-base"><span class="w-2 h-2 rounded-full bg-brand-purple shrink-0"></span><span><strong>TelaRegistrarOcorrencia</strong> — exibe formulário</span></div>
+                    <div class="flex items-center gap-3 text-base"><span class="w-2 h-2 rounded-full bg-indigo-400 shrink-0"></span><span><strong>OcorrenciaController</strong> — valida e persiste</span></div>
+                    <div class="flex items-center gap-3 text-base"><span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span><span><strong>BancoDados</strong> — armazena com status 'Recebida'</span></div>
+                </div>
+            </div>
+
+            <div class="bg-slate-50 rounded-2xl border border-slate-200 card p-7">
+                <h4 class="h-section text-lg text-brand-ink mb-6 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 text-brand-purple"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12"/></svg>
+                    Fluxo de Mensagens
+                </h4>
+                <div class="space-y-0">
+                    <div class="seq-step">
+                        <div class="seq-num">1</div>
+                        <div><strong class="text-brand-ink">Acesso à Interface:</strong> <span class="text-slate-600">Morador inicia o registro enviando parâmetros via formulário ao <code class="text-sm bg-slate-200 px-1 rounded">OcorrenciaController</code>.</span></div>
+                    </div>
+                    <div class="seq-step">
+                        <div class="seq-num">2</div>
+                        <div><strong class="text-brand-ink">Tratamento de Coordenadas:</strong> <span class="text-slate-600">Se GPS falhar, a interface consome a API ViaCEP assincronamente para deduzir o georreferenciamento.</span></div>
+                    </div>
+                    <div class="seq-step">
+                        <div class="seq-num">3</div>
+                        <div><strong class="text-brand-ink">Geração de Payload:</strong> <span class="text-slate-600">O controlador valida se os campos críticos e fotos estão no formato permitido.</span></div>
+                    </div>
+                    <!-- passos 4-6: sempre visíveis no desktop, recolhidos por padrão no mobile para reduzir densidade -->
+                    <details class="md:contents group" open>
+                        <summary class="md:hidden flex items-center gap-2 py-3 text-sm font-bold text-brand-purple cursor-pointer list-none border-t border-slate-200 mt-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4 h-4 transition-transform group-open:rotate-90"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+                            Ver passos 4–6
+                        </summary>
+                        <div class="seq-step">
+                            <div class="seq-num">4</div>
+                            <div><strong class="text-brand-ink">Instanciação do Objeto:</strong> <span class="text-slate-600">O controlador invoca o método <code class="text-sm bg-brand-purpleLight text-brand-purple px-1 rounded">new Ocorrencia()</code> encapsulando os dados recolhidos.</span></div>
+                        </div>
+                        <div class="seq-step">
+                            <div class="seq-num">5</div>
+                            <div><strong class="text-brand-ink">Geração de Chave Única:</strong> <span class="text-slate-600">O sistema calcula a chave de protocolo sequencial imutável <code class="text-sm bg-brand-purpleLight text-brand-purple px-1 rounded">SIMAD-2026-XXXX</code>.</span></div>
+                        </div>
+                        <div class="seq-step">
+                            <div class="seq-num">6</div>
+                            <div><strong class="text-brand-ink">Resolução de Estado:</strong> <span class="text-slate-600">O registro é persistido no MySQL com status inicial <em>'Recebida'</em> e retorna confirmação de sucesso à tela.</span></div>
+                        </div>
+                    </details>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== SLIDE 7B — IMAGEM: DS01 (SEQUÊNCIA REGISTRAR) ===== -->
+    <section id="sec-s7b" class="w-full block py-24 px-6 md:px-16 lg:px-24 bg-slate-50 border-y border-slate-200">
+        <div class="max-w-6xl mx-auto w-full">
+            <div class="text-center mb-12">
+                <span class="chip text-brand-purpleDark bg-brand-purpleLight border-brand-purple/20">Modelagem UML</span>
+                <h2 class="h-section text-4xl md:text-5xl text-brand-ink mt-6">DS01 — Sequência: Registrar Ocorrência</h2>
+            </div>
+            <div class="diagram-placeholder">
+                <img src="img\DIAGRAMAS-SIMAD-V2_page-0009.jpg" alt="Diagrama de Sequência: Registrar Ocorrência" class="w-full h-auto block">
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== SLIDE 8 — SEQUÊNCIA: ALERTAS ===== -->
+    <section id="sec-s8" class="min-h-screen flex flex-col justify-center px-6 md:px-16 lg:px-24 bg-slate-50 border-y border-slate-200">
+        <div class="max-w-7xl mx-auto w-full">
+            <div class="mb-12">
+                <span class="chip text-brand-orange bg-brand-orangeLight border-orange-200">Modelagem UML</span>
+                <h2 class="h-section text-5xl md:text-6xl text-brand-ink mt-6">Sequência: <span class="text-brand-orange">Fluxos de Alertas</span></h2>
+                <p class="lead mt-3 max-w-3xl">O sistema foi projetado para ações humanas e para automações futuras — dois fluxos distintos, uma única arquitetura de despacho.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Alerta Manual -->
+                <div class="bg-white p-8 rounded-3xl border border-slate-200 card">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="w-10 h-10 rounded-full bg-brand-purpleLight text-brand-purple flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"/></svg>
+                        </div>
+                        <h3 class="h-section text-2xl text-brand-ink">Alerta de Emissão Manual</h3>
+                    </div>
+                    <div class="space-y-5 border-t border-slate-100 pt-6">
+                        <div>
+                            <h4 class="font-bold text-brand-ink mb-1">Operador Autorizado</h4>
+                            <p class="text-slate-600 text-base leading-relaxed">O agente define a mensagem de risco, a severidade (Informativo a Emergência) e os limites geográficos por bairro.</p>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-brand-ink mb-1">Fluxo Técnico</h4>
+                            <p class="text-slate-600 text-base leading-relaxed">O <code class="text-sm bg-brand-purpleLight text-brand-purple px-1 rounded">AlertaController</code> verifica a validade do token JWT de agente, persiste o alerta e aciona concorrentemente o serviço de mensagens.</p>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-brand-ink mb-1">Disparo Multicanal</h4>
+                            <p class="text-slate-600 text-base leading-relaxed">É disparado um loop paralelo para despachar push notifications, SMS em lote e e-mails.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Alerta Automático -->
+                <div class="bg-brand-ink text-white p-8 rounded-3xl relative overflow-hidden">
+                    <div class="absolute -top-16 -right-16 w-48 h-48 bg-brand-orange/20 rounded-full blur-3xl"></div>
+                    <div class="absolute -bottom-16 -left-16 w-48 h-48 bg-brand-purple/20 rounded-full blur-3xl"></div>
+                    <div class="relative">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-10 h-10 rounded-full bg-brand-orange/20 text-brand-orange flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z"/></svg>
+                            </div>
+                            <h3 class="h-section text-2xl">Alerta de Emissão Automática</h3>
+                        </div>
+                        <div class="space-y-5 border-t border-white/10 pt-6">
+                            <div>
+                                <h4 class="font-bold text-brand-orange mb-1">Gatilhador Externo</h4>
+                                <p class="text-slate-300 text-base leading-relaxed">Um payload JSON com os dados pluviométricos atuais é recebido do Sistema Meteorológico parceiro.</p>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-brand-orange mb-1">Filtro de Limiares</h4>
+                                <p class="text-slate-300 text-base leading-relaxed">O sistema analisa e compara a milimetragem de chuva acumulada com os limites de segurança parametrizados.</p>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-brand-orange mb-1">Automação de Risco</h4>
+                                <p class="text-slate-300 text-base leading-relaxed">Ultrapassado o teto técnico, o sistema instancia um alerta emergencial de forma nativa e inicia a notificação pública.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== SLIDE 8B — IMAGEM: DS02 (SEQUÊNCIA ALERTA MANUAL) ===== -->
+    <section id="sec-s8b" class="w-full block py-24 px-6 md:px-16 lg:px-24 bg-white">
+        <div class="max-w-6xl mx-auto w-full">
+            <div class="text-center mb-12">
+                <span class="chip text-brand-orange bg-brand-orangeLight border-orange-200">Modelagem UML</span>
+                <h2 class="h-section text-4xl md:text-5xl text-brand-ink mt-6">DS02 — Sequência: Alerta de Emissão Manual</h2>
+            </div>
+            <div class="diagram-placeholder">
+                <img src="img\DIAGRAMAS-SIMAD-V2_page-0011.jpg" alt="Diagrama de Sequência: Alerta de Emissão Manual" class="w-full h-auto block">
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== SLIDE 8C — IMAGEM: DS03 (SEQUÊNCIA ALERTA AUTOMÁTICO) ===== -->
+    <section id="sec-s8c" class="w-full block py-24 px-6 md:px-16 lg:px-24 bg-slate-50 border-y border-slate-200">
+        <div class="max-w-6xl mx-auto w-full">
+            <div class="text-center mb-12">
+                <span class="chip text-brand-orange bg-brand-orangeLight border-orange-200">Modelagem UML</span>
+                <h2 class="h-section text-4xl md:text-5xl text-brand-ink mt-6">DS03 — Sequência: Alerta de Emissão Automática</h2>
+            </div>
+            <div class="diagram-placeholder">
+                <img src="img\DIAGRAMAS-SIMAD-V2_page-0010.jpg" alt="Diagrama de Sequência: Alerta de Emissão Automática" class="w-full h-auto block">
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== SLIDE 9 — MÁQUINA DE ESTADOS ===== -->
+    <section id="sec-s9" class="min-h-screen flex flex-col justify-center px-6 md:px-16 lg:px-24 bg-white">
+        <div class="max-w-7xl mx-auto w-full">
+            <div class="mb-10">
+                <span class="chip text-brand-purpleDark bg-brand-purpleLight border-brand-purple/20">Modelagem UML</span>
+                <h2 class="h-section text-5xl md:text-6xl text-brand-ink mt-6">Máquina de Estados <span class="text-brand-purple">da Ocorrência</span></h2>
+                <p class="lead mt-3 max-w-3xl">A Ocorrência é a principal entidade do SIMAD. Seu ciclo de vida segue transições rígidas que preservam logs imutáveis a cada avanço.</p>
+            </div>
+
+            <!-- State diagram visual -->
+            <div class="bg-slate-50 rounded-3xl border border-slate-200 card p-8 mb-8">
+                <div class="flex flex-wrap items-center justify-center gap-2 md:gap-3">
+                    <div class="w-5 h-5 rounded-full bg-brand-ink border-4 border-brand-ink shrink-0"></div>
+                    <span class="arrow">→</span>
+                    <div class="state-node border-brand-purple text-brand-purpleDark bg-brand-purpleLight">Registrada</div>
+                    <span class="arrow">→</span>
+                    <div class="state-node border-indigo-400 text-indigo-700 bg-indigo-50">Em Análise</div>
+                    <span class="arrow">→</span>
+                    <div class="state-node border-amber-400 text-amber-700 bg-amber-50">Em Atendimento</div>
+                    <span class="arrow">→</span>
+                    <div class="state-node border-emerald-500 text-emerald-700 bg-emerald-50">Resolvida</div>
+                    <span class="arrow">→</span>
+                    <div class="state-node border-slate-400 text-slate-600 bg-slate-100">Encerrada</div>
+                    <span class="arrow">→</span>
+                    <div class="w-7 h-7 rounded-full border-4 border-brand-ink bg-brand-ink flex items-center justify-center">
+                        <div class="w-3 h-3 rounded-full bg-white"></div>
+                    </div>
+                </div>
+                <!-- desvio Cancelada -->
+                <div class="flex items-center justify-center gap-3 mt-6 text-slate-400">
+                    <span class="text-sm font-mono">De: Registrada ou Em Análise</span>
+                    <span class="arrow">⤵</span>
+                    <div class="state-node border-red-400 text-red-700 bg-red-50">Cancelada</div>
+                    <span class="arrow">→</span>
+                    <div class="w-7 h-7 rounded-full border-4 border-brand-ink bg-brand-ink flex items-center justify-center">
+                        <div class="w-3 h-3 rounded-full bg-white"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Regras de transição -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 card">
+                    <div class="w-10 h-10 rounded-xl bg-brand-purpleLight text-brand-purple flex items-center justify-center mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3v1.5M3 21v-6m0 0 2.77-.693a9 9 0 0 1 6.208.682l.108.054a9 9 0 0 0 6.086.71l3.114-.732a48.524 48.524 0 0 1-.005-10.499l-3.11.732a9 9 0 0 1-6.085-.711l-.108-.054a9 9 0 0 0-6.208-.682L3 4.5M3 15V4.5"/></svg>
+                    </div>
+                    <h4 class="h-section text-lg text-brand-ink mb-2">Estado Inicial</h4>
+                    <p class="text-sm text-slate-600">Toda ocorrência inicia como <strong>Registrada</strong>, gerado automaticamente pelo sistema (RN11).</p>
+                </div>
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 card">
+                    <div class="w-10 h-10 rounded-xl bg-brand-purpleLight text-brand-purple flex items-center justify-center mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"/></svg>
+                    </div>
+                    <h4 class="h-section text-lg text-brand-ink mb-2">Controle de Acesso</h4>
+                    <p class="text-sm text-slate-600">Somente <strong>Agente ou Administrador</strong> alteram o status. Moradores apenas consultam (RN13).</p>
+                </div>
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 card">
+                    <div class="w-10 h-10 rounded-xl bg-brand-purpleLight text-brand-purple flex items-center justify-center mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z"/></svg>
+                    </div>
+                    <h4 class="h-section text-lg text-brand-ink mb-2">Rastreabilidade</h4>
+                    <p class="text-sm text-slate-600">Toda alteração de status gera um registro <strong>imutável</strong> em HistoricoOcorrencia com usuário e data/hora (CA03).</p>
+                </div>
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 card">
+                    <div class="w-10 h-10 rounded-xl bg-brand-purpleLight text-brand-purple flex items-center justify-center mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z"/></svg>
+                    </div>
+                    <h4 class="h-section text-lg text-brand-ink mb-2">Persistência</h4>
+                    <p class="text-sm text-slate-600">Ocorrências não são apagadas fisicamente. Exclusão lógica preserva histórico para auditoria (RN14).</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== SLIDE 9B — IMAGEM: MÁQUINA DE ESTADOS ===== -->
+<section id="sec-s9b" class="w-full block py-24 px-6 md:px-16 lg:px-24 bg-slate-50 border-y border-slate-200">
+        <div class="max-w-6xl mx-auto w-full">
+            <div class="text-center mb-12">
+                <span class="chip text-brand-purpleDark bg-brand-purpleLight border-brand-purple/20">Modelagem UML</span>
+                <h2 class="h-section text-4xl md:text-5xl text-brand-ink mt-6">Máquina de Estados — Diagrama Completo</h2>
+            </div>
+            
+            <div class="diagram-placeholder">
+                <img src="img\DIAGRAMAS-SIMAD-V2_page-0013.jpg" alt="Máquina de Estados" class="w-full h-auto block">
+            </div>
+            
+            <div class="diagram-placeholder mt-12">
+                <img src="img\DIAGRAMAS-SIMAD-V2_page-0014.jpg" alt="Máquina de Estados" class="w-full h-auto block">
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== SLIDE 10 — TECNOLOGIAS E CONCLUSÃO ===== -->
+<section id="sec-s10" class="w-full block py-24 px-6 md:px-16 lg:px-24 bg-slate-50 border-y border-slate-200">
+        <div class="max-w-7xl mx-auto w-full">
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-stretch">
+                
+                <div class="flex flex-col justify-end h-full">
+                    
+                    <div class="mb-8">
+                        <span class="chip text-brand-purpleDark bg-brand-purpleLight border-brand-purple/20">Tecnologias e Conclusão</span>
+                        <h2 class="h-section text-5xl md:text-6xl text-brand-ink mt-4 leading-[1.05]">
+                            Stack & <span class="text-brand-purple">Próximos Passos</span>
+                        </h2>
+                    </div>
+
+                    <div class="flex flex-col gap-6">
+                        <div class="bg-white p-7 rounded-2xl border border-slate-200 card">
+                            <div class="flex items-center gap-3 mb-5">
+                                <span class="chip text-brand-purple bg-brand-purpleLight border-brand-purple/20 text-xs">Fase 1: MVP</span>
+                            </div>
+                            <p class="text-base text-slate-600 mb-4 leading-relaxed"><strong class="text-brand-ink">Stack Desenvolvida:</strong> Frontend leve em JS Vanilla/CSS, Backend em PHP estruturado e MySQL nativo na hospedagem compartilhada da HostGator.</p>
+                            <div class="flex flex-wrap gap-2">
+                                <span class="bg-slate-100 text-slate-700 text-sm px-3 py-1.5 rounded-lg font-mono border border-slate-200">HTML5 · CSS3 · JS</span>
+                                <span class="bg-brand-purpleLight text-brand-purpleDark text-sm px-3 py-1.5 rounded-lg font-mono border border-brand-purple/20">PHP Nativo</span>
+                                <span class="bg-blue-50 text-blue-700 text-sm px-3 py-1.5 rounded-lg font-mono border border-blue-200">MySQL</span>
+                                <span class="bg-orange-50 text-brand-orange text-sm px-3 py-1.5 rounded-lg font-mono border border-orange-200">HostGator</span>
+                            </div>
+                            <p class="text-sm text-slate-500 mt-4 leading-relaxed"><strong>Justificativa Técnica:</strong> Rapidez na implantação, custo zero de infraestrutura e estabilidade ideal para validar a tese operacional.</p>
+                        </div>
+
+                        <div class="bg-brand-ink text-white p-7 rounded-2xl relative overflow-hidden">
+                            <div class="absolute -top-10 -right-10 w-36 h-36 bg-brand-orange/20 rounded-full blur-2xl"></div>
+                            <div class="relative">
+                                <span class="chip text-brand-orange bg-brand-orange/10 border-brand-orange/30 text-xs mb-4">Fase 2: Escalonamento</span>
+                                <p class="text-slate-300 text-base leading-relaxed mt-3"><strong class="text-white">Evolução Arquitetural:</strong> Transição para Python 3.11 com FastAPI e persistência no Azure SQL Database.</p>
+                                <p class="text-slate-300 text-base leading-relaxed mt-3"><strong class="text-brand-orange">Recursos Avançados:</strong> Firebase (push), Twilio (SMS) e roteamento inteligente via grafos.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-6 justify-end h-full">
+                    <div class="bg-white px-8 py-6 rounded-3xl border border-slate-200 card">
+                        <h3 class="h-section text-2xl text-brand-ink mb-4 border-b pb-3 border-slate-100">Resultados Alcançados</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center gap-3"><span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg></span><span class="text-slate-700 font-semibold text-sm">Escopo definido e requisitos levantados</span></div>
+                            <div class="flex items-center gap-3"><span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg></span><span class="text-slate-700 font-semibold text-sm">Arquitetura de microsserviços modelada</span></div>
+                            <div class="flex items-center gap-3"><span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg></span><span class="text-slate-700 font-semibold text-sm">5 diagramas UML produzidos e validados</span></div>
+                            <div class="flex items-center gap-3"><span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg></span><span class="text-slate-700 font-semibold text-sm">MVP funcional desenvolvido</span></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-7 rounded-3xl border border-slate-200 card">
+                        <h3 class="h-section text-2xl text-brand-ink mb-5">Cada diagrama respondeu a uma pergunta</h3>
+                        <div class="space-y-3 border-l-2 border-slate-200 pl-5">
+                            <div class="timeline-item"><span class="text-sm text-slate-400 font-bold uppercase tracking-widest block text-[11px]">Pacotes</span><span class="text-brand-ink font-semibold text-sm">Como a arquitetura foi organizada?</span></div>
+                            <div class="timeline-item mt-2"><span class="text-sm text-slate-400 font-bold uppercase tracking-widest block text-[11px]">Classes</span><span class="text-brand-ink font-semibold text-sm">Quais entidades estruturam o sistema?</span></div>
+                            <div class="timeline-item mt-2"><span class="text-sm text-slate-400 font-bold uppercase tracking-widest block text-[11px]">Objetos</span><span class="text-brand-ink font-semibold text-sm">Como as entidades funcionam em um caso real?</span></div>
+                            <div class="timeline-item mt-2"><span class="text-sm text-slate-400 font-bold uppercase tracking-widest block text-[11px]">Sequência</span><span class="text-brand-ink font-semibold text-sm">Como os fluxos acontecem passo a passo?</span></div>
+                            <div class="timeline-item mt-2"><span class="text-sm text-slate-400 font-bold uppercase tracking-widest block text-[11px]">Estados</span><span class="text-brand-ink font-semibold text-sm">Como a ocorrência evolui no sistema?</span></div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== ENCERRAMENTO ===== -->
+    <section id="sec-end" class="min-h-screen flex flex-col justify-center items-center px-6 text-center bg-white relative">
+        <div class="max-w-4xl opacity-0 scale-95" id="final-box">
+            <h2 class="h-section text-6xl md:text-8xl font-extrabold text-brand-ink mb-4 tracking-tight">SI<span class="gradient-text">MAD</span></h2>
+            <p class="text-lg font-bold text-slate-500 mb-10 tracking-[0.25em] uppercase">
+                Análise e Projeto de Sistemas · IFSP Pirituba
+            </p>
+            <div class="gradient-text text-3xl md:text-6xl h-section font-extrabold uppercase tracking-tight border-y-2 py-8 border-slate-200 leading-[1.05]">
+                "Porque segundos salvam vidas."
+            </div>
+            <p class="text-xl text-slate-600 mt-14 font-semibold">Muito obrigado pela atenção.</p>
+            <p class="text-base text-slate-400 mt-3">Hiandra · Jeyson · Letícia · Maria · Taíssa</p>
+            <p class="text-sm text-slate-300 mt-2">Prof. Luiz Albano · 26/06/2026</p>
+        </div>
+    </section>
+
+    <script>
+        gsap.registerPlugin(ScrollTrigger);
+
+        // Timer regressivo
+        let timeRemaining = 10 * 60;
+        const timerLabel = document.getElementById('timer');
+        const countdownTimer = setInterval(() => {
+            const m = Math.floor(timeRemaining / 60);
+            const s = String(timeRemaining % 60).padStart(2, '0');
+            timerLabel.textContent = `${m}:${s}`;
+            if (timeRemaining <= 0) { clearInterval(countdownTimer); timerLabel.classList.add('text-red-600','bg-red-50'); }
+            timeRemaining--;
+        }, 1000);
+
+        // Presenter switch + slide counter
+        const presenterLabel = document.getElementById('active-presenter');
+        const slideCounter = document.getElementById('slide-counter');
+        const switchPresenter = (name) => {
+            presenterLabel.style.opacity = 0;
+            setTimeout(() => { presenterLabel.textContent = name; presenterLabel.style.opacity = 1; }, 150);
+        };
+        // isDiagram: true = slide de imagem (4B, 5B, 6B, 7B, 8B, 8C, 9B); não recebe número próprio no contador,
+        // mas mantém o controle de apresentador. Exibe o número do slide "pai" + sufixo de imagem.
+        const sections = [
+            { id:'sec-s1',  who:'MARIA',   label:'1' },
+            { id:'sec-s2',  who:'MARIA',   label:'2' },
+            { id:'sec-s3',  who:'JEYSON',  label:'3' },
+            { id:'sec-s4',  who:'JEYSON',  label:'4' },
+            { id:'sec-s4b', who:'JEYSON',  label:'4 · imagem', isDiagram:true },
+            { id:'sec-s5',  who:'TAÍSSA',  label:'5' },
+            { id:'sec-s5b', who:'TAÍSSA',  label:'5 · imagem', isDiagram:true },
+            { id:'sec-s6',  who:'TAÍSSA',  label:'6' },
+            { id:'sec-s6b', who:'TAÍSSA',  label:'6 · imagem', isDiagram:true },
+            { id:'sec-s7',  who:'TAÍSSA',  label:'7' },
+            { id:'sec-s7b', who:'TAÍSSA',  label:'7 · imagem', isDiagram:true },
+            { id:'sec-s8',  who:'LETÍCIA', label:'8' },
+            { id:'sec-s8b', who:'LETÍCIA', label:'8 · imagem', isDiagram:true },
+            { id:'sec-s8c', who:'LETÍCIA', label:'8 · imagem', isDiagram:true },
+            { id:'sec-s9',  who:'LETÍCIA', label:'9' },
+            { id:'sec-s9b', who:'LETÍCIA', label:'9 · imagem', isDiagram:true },
+            { id:'sec-s10', who:'LETÍCIA', label:'10' },
+        ];
+        // total de slides numerados (sem contar os slides de imagem nem o encerramento)
+        const numberedTotal = sections.filter(s => !s.isDiagram).length;
+        sections.forEach((s) => {
+            ScrollTrigger.create({
+                trigger: '#' + s.id, start: 'top center',
+                onEnter: () => { switchPresenter(s.who); slideCounter.textContent = `${s.label} / ${numberedTotal}`; },
+                onEnterBack: () => { switchPresenter(s.who); slideCounter.textContent = `${s.label} / ${numberedTotal}`; }
+            });
+        });
+        // Encerramento: fora da contagem numerada
+        ScrollTrigger.create({
+            trigger: '#sec-end', start: 'top center',
+            onEnter: () => { switchPresenter('LETÍCIA'); slideCounter.textContent = 'Encerramento'; },
+            onEnterBack: () => { switchPresenter('LETÍCIA'); slideCounter.textContent = 'Encerramento'; }
+        });
+
+        // Barra de progresso
+        window.addEventListener('scroll', () => {
+            const cur = document.documentElement.scrollTop;
+            const max = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+            document.getElementById('progress-bar').style.width = ((cur / max) * 100) + '%';
+        });
+
+        // Navegação por teclado (inclui o encerramento, que não entra na contagem numerada)
+        const ids = [...sections.map(s => s.id), 'sec-end'];
+        const currentIndex = () => {
+            const y = window.scrollY + window.innerHeight / 2;
+            for (let i = ids.length - 1; i >= 0; i--) {
+                if (document.getElementById(ids[i]).offsetTop <= y) return i;
+            }
+            return 0;
+        };
+        const goTo = (i) => {
+            const idx = Math.max(0, Math.min(ids.length - 1, i));
+            document.getElementById(ids[idx]).scrollIntoView({ behavior: 'smooth' });
+        };
+        window.addEventListener('keydown', (e) => {
+            if (['ArrowDown','PageDown',' '].includes(e.key)) { e.preventDefault(); goTo(currentIndex() + 1); }
+            if (['ArrowUp','PageUp'].includes(e.key)) { e.preventDefault(); goTo(currentIndex() - 1); }
+            if (e.key === 'Home') goTo(0);
+            if (e.key === 'End') goTo(ids.length - 1);
+        });
+
+        // Animações
+        gsap.to('.init-anim', { opacity: 1, y: 0, duration: 1.2, ease: 'power3.out', delay: 0.2 });
+
+        gsap.to('#final-box', { opacity:1, scale:1, duration:1, ease:'back.out(1.2)',
+            scrollTrigger:{ trigger:'#sec-end', start:'top 50%' } });
+    </script>
+</body>
+</html>
